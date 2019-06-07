@@ -12,14 +12,19 @@ namespace SIEGateCleanup
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
-        static void Main()
+        static void Main(string[] args)
         {
-            ServiceBase[] ServicesToRun;
-            ServicesToRun = new ServiceBase[]
+            SIEGateCleanup service = new SIEGateCleanup();
+            if (Environment.UserInteractive)
             {
-                new Service1()
-            };
-            ServiceBase.Run(ServicesToRun);
+                service.RunAsConsole(args);
+            }
+            else
+            {
+                ServiceBase[] ServicesToRun;
+                ServicesToRun = new ServiceBase[] { service };
+                ServiceBase.Run(ServicesToRun);
+            }
         }
     }
 }

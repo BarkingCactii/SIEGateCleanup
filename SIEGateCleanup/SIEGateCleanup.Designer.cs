@@ -1,6 +1,6 @@
 ﻿namespace SIEGateCleanup
 {
-    partial class Service1
+    partial class SIEGateCleanup
     {
         /// <summary> 
         /// Required designer variable.
