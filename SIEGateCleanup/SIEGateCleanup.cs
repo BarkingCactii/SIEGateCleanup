@@ -14,6 +14,8 @@ namespace SIEGateCleanup
 {
     public partial class SIEGateCleanup : ServiceBase
     {
+        private static readonly Logger.Logger _log = Logger.Log.GetInstance("SIEGateCleanup");
+
         private static Timer aTimer;
         private string _path = null;
 
@@ -56,7 +58,7 @@ namespace SIEGateCleanup
             {
                 Console.WriteLine(String.Format("{0:yyyy-MM-dd HH:mm:ss} : Cleaning...", e.SignalTime));
                 // after initial execution, set timer to its repeating state
-                aTimer.Interval = 10 * 1000;
+                aTimer.Interval = 60 * 1000;
 
                 PurgeFiles(_path);
             }
@@ -67,16 +69,25 @@ namespace SIEGateCleanup
 
         private void PurgeFiles(string dirPath)
         {
-            string [] folders = Directory.GetDirectories(dirPath);
-
-            foreach ( string folder in folders )
+            try
             {
-                string[] files = Directory.GetFiles(folder, "*", SearchOption.AllDirectories);
+                string[] folders = Directory.GetDirectories(dirPath);
 
-                foreach (string file in files)
+                foreach (string folder in folders)
                 {
-                    Console.WriteLine("Deleting " + file);
+                    string[] files = Directory.GetFiles(folder, "*", SearchOption.AllDirectories);
+
+                    foreach (string file in files)
+                    {
+                        //    File.Delete(file);
+                        _log.Info(file);
+                    //    Console.WriteLine("Deleting " + file);
+                    }
                 }
+            }
+            catch ( Exception ex)
+            {
+
             }
         }
 
