@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Linq;
 using System.ServiceProcess;
 using System.Text;
@@ -17,10 +18,17 @@ namespace SIEGateCleanup
             SIEGateCleanup service = new SIEGateCleanup();
             if (Environment.UserInteractive)
             {
+
+                string path =  ConfigurationManager.AppSettings["Path"];
+//                    System.Configuration.Configuration.AppSettings.CurrentConfiguration.
+ //                  string value = System.Configuration.ConfigurationManager.AppSettings["Path"];
+
                 service.RunAsConsole(args);
             }
             else
             {
+                string value = System.Configuration.ConfigurationManager.AppSettings["Path"];
+
                 ServiceBase[] ServicesToRun;
                 ServicesToRun = new ServiceBase[] { service };
                 ServiceBase.Run(ServicesToRun);

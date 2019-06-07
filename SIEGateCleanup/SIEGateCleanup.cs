@@ -8,12 +8,14 @@ using System.ServiceProcess;
 using System.Text;
 using System.Threading.Tasks;
 using System.Timers;
+using System.IO;
 
 namespace SIEGateCleanup
 {
     public partial class SIEGateCleanup : ServiceBase
     {
         private static Timer aTimer;
+        private string _path = null;
 
         public void RunAsConsole(string[] args)
         {
@@ -31,7 +33,7 @@ namespace SIEGateCleanup
 
         protected override void OnStart(string[] args)
         {
-            StartProcess();
+            StartProcess(args);
         }
 
         protected override void OnStop()
@@ -39,9 +41,10 @@ namespace SIEGateCleanup
             StopProcess();
         }
 
-        public void StartProcess()
+        public void StartProcess(string [] args)
         {
-            aTimer = new Timer(10 * 1000);
+            _path = args[0];
+            aTimer = new Timer(2 * 1000);
             aTimer.Elapsed += new ElapsedEventHandler(ExecuteEveryDayMethod);
             aTimer.Enabled = true;
         }
@@ -51,10 +54,29 @@ namespace SIEGateCleanup
         {
             try
             {
-                Console.WriteLine(String.Format("{0:yyyy-MM-dd HH:mm:ss} : Cleaning...", e.SignalTime));// DateTime.Now));
+                Console.WriteLine(String.Format("{0:yyyy-MM-dd HH:mm:ss} : Cleaning...", e.SignalTime));
+                // after initial execution, set timer to its repeating state
+                aTimer.Interval = 10 * 1000;
+
+                PurgeFiles(_path);
             }
             catch
             {
+            }
+        }
+
+        private void PurgeFiles(string dirPath)
+        {
+            string [] folders = Directory.GetDirectories(dirPath);
+
+            foreach ( string folder in folders )
+            {
+                string[] files = Directory.GetFiles(folder, "*", SearchOption.AllDirectories);
+
+                foreach (string file in files)
+                {
+                    Console.WriteLine("Deleting " + file);
+                }
             }
         }
 
