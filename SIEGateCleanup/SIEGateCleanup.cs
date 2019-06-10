@@ -11,22 +11,25 @@ using System.Timers;
 using System.IO;
 using System.Collections;
 using System.Collections.Specialized;
+using System.Configuration;
 
 namespace SIEGateCleanup
 {
     public partial class SIEGateCleanup : ServiceBase
     {
-        private static readonly Logger.Logger _log = Logger.Log.GetInstance("SIEGateCleanup");
+        private static readonly Logger.Logger _log = Logger.Log.GetInstance("log");
         private static DateTime upTime = DateTime.Now;
         OrderedDictionary _stats = new OrderedDictionary();
+        private int _minutes = 60 * 12; // twice a day default
 
         private static Timer aTimer;
-        private string _path = null;
+        private string [] _path = null;
 
         class CleanupStats
         {
             public long totalBytes;
             public int totalFiles;
+            public string folder;
         }
 
         public void RunAsConsole(string[] args)
@@ -45,7 +48,26 @@ namespace SIEGateCleanup
 
         protected override void OnStart(string[] args)
         {
-            StartProcess(args);
+
+            if ( int.TryParse(ConfigurationManager.AppSettings["Minutes"], out _minutes))
+                _log.Info(String.Format("Applying thread restart every {0} minutes", _minutes ));
+
+            string[] seperator = { ";" };
+            string[] path = null;
+
+            if (args.Length > 0)
+                path = args[0].Split(seperator, StringSplitOptions.None);
+            else
+                path = ConfigurationManager.AppSettings["Path"].Split(seperator, StringSplitOptions.None);
+
+            if (path == null || path.Length == 0)
+            {
+                _log.Error("No path has been set. Cannot continue");
+                OnStop();
+                return;
+            }
+
+            StartProcess(path);
         }
 
         protected override void OnStop()
@@ -55,7 +77,8 @@ namespace SIEGateCleanup
 
         public void StartProcess(string [] args)
         {
-            _path = args[0];
+            _log.Info("Applying purging to folders " + string.Join(";", args));
+            _path = args;
             aTimer = new Timer(2 * 1000);
             aTimer.Elapsed += new ElapsedEventHandler(ExecuteEveryDayMethod);
             aTimer.Enabled = true;
@@ -67,30 +90,57 @@ namespace SIEGateCleanup
             try
             {
                 _log.Info("Thread started");
-                // after initial execution, set timer to its repeating state
-                aTimer.Interval = 60 * 1000;
 
-                CleanupStats stat = PurgeFiles(_path);
-                _stats.Add(DateTime.Now, stat);
+                // after initial execution, set timer to its repeating state
+                aTimer.Interval = _minutes * 60 * 1000;
+
+                foreach (string folder in _path)
+                {
+                    CleanupStats stat = PurgeFiles(folder);
+                    _stats.Add(DateTime.Now, stat);
+                }
 
                 PrintStats();
-                //_log.Info(String.Format("Summary: Files deleted {0}, Total bytes {1:n0}mb", stats.totalFiles, stats.totalBytes / (1024 * 1024)));
             }
-            catch
+            catch (Exception ex)
+            {
+                _log.Error(ex.Message);
+            }
+            finally
             {
             }
         }
 
         private void PrintStats()
         {
-            _log.Info(String.Format("Summary as of {0}", DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss")));
-            _log.Info(String.Format("{0,-25}{1,11}{2,15}", "Time", "Total Files","Total Mb"));
+            char topleft = '┌';
+            char hline = '─';
+            char topright = '┐';
+            char vline = '│';
+            char bottomleft = '└';
+            char bottomright = '┘';
+
+            var builder = new StringBuilder();
+            builder.Append(topleft);
+            for (int i = 0; i < 104; i++)
+                builder.Append(hline);
+            builder.Append(topright);
+            _log.Info(builder.ToString());
+
+            _log.Info(String.Format("│{0,-14}{1,-90}│", "Summary as of ", DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss")));
+            _log.Info(String.Format("│{0,-22}{1,-60}{2,11}{3,11}│", "Time", "Folder", "Total Files", "Total Mb"));
             foreach ( DateTime item in _stats.Keys)
             {
                 CleanupStats currentStat = (CleanupStats)_stats[item];
-                _log.Info(String.Format("{0,-25}{1,11}{2,15:n0} Mb", item.ToString("dd/MM/yyyy HH:mm:ss"), currentStat.totalFiles, currentStat.totalBytes / (1024 * 1024)));
+                _log.Info(String.Format("│{0,-22}{1,-60}{2,11}{3,11:n0}│", item.ToString("dd/MM/yyyy HH:mm:ss"), currentStat.folder, currentStat.totalFiles, currentStat.totalBytes / (1024 * 1024)));
             }
-            _log.Info("END");
+
+            builder.Clear();
+            builder.Append(bottomleft);
+            for (int i = 0; i < 104; i++)
+                builder.Append(hline);
+            builder.Append(bottomright);
+            _log.Info(builder.ToString());
         }
 
         private CleanupStats PurgeFiles(string dirPath)
@@ -114,9 +164,8 @@ namespace SIEGateCleanup
                             FileInfo fi = new FileInfo(file);
                             stats.totalBytes += fi.Length;
                             stats.totalFiles++;
+                            stats.folder = folder;
                             //    File.Delete(file);
-                //            _log.Info(file);
-                            //    Console.WriteLine("Deleting " + file);
                         }
                         catch (Exception ex)
                         {
@@ -134,8 +183,8 @@ namespace SIEGateCleanup
 
         public void StopProcess()
         {
-
+            aTimer.Enabled = false;
+            aTimer.Stop();
         }
-
     }
 }

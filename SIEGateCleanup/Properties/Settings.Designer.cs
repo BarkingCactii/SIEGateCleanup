@@ -31,5 +31,14 @@ namespace SIEGateCleanup.Properties {
                 return ((string)(this["Path"]));
             }
         }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1")]
+        public int Minutes {
+            get {
+                return ((int)(this["Minutes"]));
+            }
+        }
     }
 }

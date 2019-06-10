@@ -5,5 +5,8 @@
     <Setting Name="Path" Type="System.String" Scope="Application">
       <Value Profile="(Default)">C:\Program Files\SIEGate\Archive</Value>
     </Setting>
+    <Setting Name="Minutes" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
   </Settings>
 </SettingsFile>
