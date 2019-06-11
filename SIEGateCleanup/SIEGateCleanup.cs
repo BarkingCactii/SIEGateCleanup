@@ -165,7 +165,7 @@ namespace SIEGateCleanup
                             stats.totalBytes += fi.Length;
                             stats.totalFiles++;
                             stats.folder = folder;
-                            //    File.Delete(file);
+                            File.Delete(file);
                         }
                         catch (Exception ex)
                         {
