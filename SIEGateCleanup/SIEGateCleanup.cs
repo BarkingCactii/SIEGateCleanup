@@ -96,8 +96,8 @@ namespace SIEGateCleanup
 
                 foreach (string folder in _path)
                 {
-                    CleanupStats stat = PurgeFiles(folder);
-                    _stats.Add(DateTime.Now, stat);
+                    PurgeFiles(folder);
+                    //_stats.Add(DateTime.Now, stat);
                 }
 
                 PrintStats();
@@ -143,10 +143,8 @@ namespace SIEGateCleanup
             _log.Info(builder.ToString());
         }
 
-        private CleanupStats PurgeFiles(string dirPath)
+        private void PurgeFiles(string dirPath)
         {
-            CleanupStats stats = new CleanupStats() { totalBytes = 0, totalFiles = 0 };
-
             try
             {
                 string[] folders = Directory.GetDirectories(dirPath, "*", SearchOption.AllDirectories);
@@ -154,8 +152,13 @@ namespace SIEGateCleanup
                 foreach (string folder in folders)
                 {
                     string[] files = Directory.GetFiles(folder, "*", SearchOption.TopDirectoryOnly);//.AllDirectories);
-                    if ( files.Length > 0)
-                        _log.Info(String.Format("Purging folder {0} -> {1} files", folder, files.Length));
+                    if (files.Length == 0)
+                        // don't process empty folders
+                        continue;
+
+                    _log.Info(String.Format("Purging folder {0} -> {1} files", folder, files.Length));
+
+                    CleanupStats stats = new CleanupStats() { totalBytes = 0, totalFiles = 0 };
 
                     foreach (string file in files)
                     {
@@ -169,16 +172,19 @@ namespace SIEGateCleanup
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine("Inner loop: " + ex.Message);
+                            _log.Error("Inner loop: " + ex.Message);
                         }
                     }
+
+                    _stats.Add(DateTime.Now, stats);
+
                 }
             }
             catch ( Exception ex)
             {
-                Console.WriteLine("Outer loop: " + ex.Message);
+                _log.Error("Outer loop: " + ex.Message);
             }
-            return stats;
+           //return stats;
         }
 
         public void StopProcess()
