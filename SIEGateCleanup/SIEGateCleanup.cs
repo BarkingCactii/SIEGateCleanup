@@ -21,6 +21,7 @@ namespace SIEGateCleanup
         private static DateTime upTime = DateTime.Now;
         OrderedDictionary _stats = new OrderedDictionary();
         private int _minutes = 60 * 12; // twice a day default
+        private bool _simulate = false;
 
         private static Timer aTimer;
         private string [] _path = null;
@@ -34,6 +35,14 @@ namespace SIEGateCleanup
 
         public void RunAsConsole(string[] args)
         {
+            if (args.Length > 1) {
+                if (args[1].Contains("simulate"))
+                {
+                    _simulate = true;
+                    _log.Info("Running in simulated mode. No files will be deleted");
+                }
+            }
+
             OnStart(args);
             Console.WriteLine("Running service as a Console. Press Enter to stop program");
             Console.ReadLine();
@@ -89,7 +98,7 @@ namespace SIEGateCleanup
         {
             try
             {
-                _log.Info("Thread started");
+                _log.Info("Process started");
 
                 // after initial execution, set timer to its repeating state
                 aTimer.Interval = _minutes * 60 * 1000;
@@ -97,7 +106,6 @@ namespace SIEGateCleanup
                 foreach (string folder in _path)
                 {
                     PurgeFiles(folder);
-                    //_stats.Add(DateTime.Now, stat);
                 }
 
                 PrintStats();
@@ -127,12 +135,12 @@ namespace SIEGateCleanup
             builder.Append(topright);
             _log.Info(builder.ToString());
 
-            _log.Info(String.Format("│{0,-14}{1,-90}│", "Summary as of ", DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss")));
-            _log.Info(String.Format("│{0,-22}{1,-60}{2,11}{3,11}│", "Time", "Folder", "Total Files", "Total Mb"));
+            _log.Info(String.Format("{0}{1,-14}{2,-90}{0}", vline, "Summary as of ", DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss")));
+            _log.Info(String.Format("{0}{1,-22}{2,-60}{3,11}{4,11}{0}", vline, "Time", "Folder", "Total Files", "Total Mb"));
             foreach ( DateTime item in _stats.Keys)
             {
                 CleanupStats currentStat = (CleanupStats)_stats[item];
-                _log.Info(String.Format("│{0,-22}{1,-60}{2,11}{3,11:n0}│", item.ToString("dd/MM/yyyy HH:mm:ss"), currentStat.folder, currentStat.totalFiles, currentStat.totalBytes / (1024 * 1024)));
+                _log.Info(String.Format("{0}{1,-22}{2,-60}{3,11}{4,11:n0}{0}", vline, item.ToString("dd/MM/yyyy HH:mm:ss"), currentStat.folder, currentStat.totalFiles, currentStat.totalBytes / (1024 * 1024)));
             }
 
             builder.Clear();
@@ -151,7 +159,8 @@ namespace SIEGateCleanup
 
                 foreach (string folder in folders)
                 {
-                    string[] files = Directory.GetFiles(folder, "*", SearchOption.TopDirectoryOnly);//.AllDirectories);
+                    string[] files = Directory.GetFiles(folder, "*", SearchOption.TopDirectoryOnly);
+
                     if (files.Length == 0)
                         // don't process empty folders
                         continue;
@@ -168,11 +177,14 @@ namespace SIEGateCleanup
                             stats.totalBytes += fi.Length;
                             stats.totalFiles++;
                             stats.folder = folder;
-                            File.Delete(file);
+                            if (_simulate == true)
+                                _log.Debug("Would have deleted " + file);
+                            else
+                                File.Delete(file);
                         }
                         catch (Exception ex)
                         {
-                            _log.Error("Inner loop: " + ex.Message);
+                            _log.Error("Inner try PurgeFiles: " + ex.Message);
                         }
                     }
 
@@ -182,9 +194,8 @@ namespace SIEGateCleanup
             }
             catch ( Exception ex)
             {
-                _log.Error("Outer loop: " + ex.Message);
+                _log.Error("Outer try PurgeFiles: " + ex.Message);
             }
-           //return stats;
         }
 
         public void StopProcess()
