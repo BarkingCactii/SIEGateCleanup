@@ -20,6 +20,8 @@ namespace SIEGateCleanup
         private static readonly Logger.Logger _log = Logger.Log.GetInstance("log");
         private static DateTime upTime = DateTime.Now;
         OrderedDictionary _stats = new OrderedDictionary();
+        OrderedDictionary _dailyTotals = new OrderedDictionary();
+
         private int _minutes = 60 * 12; // twice a day default
         private bool _simulate = false;
 
@@ -109,6 +111,9 @@ namespace SIEGateCleanup
                 }
 
                 PrintStats();
+                PrintDailyTotal();
+
+                _stats.Clear();
             }
             catch (Exception ex)
             {
@@ -151,10 +156,46 @@ namespace SIEGateCleanup
             _log.Info(builder.ToString());
         }
 
+        private void PrintDailyTotal()
+        {
+            char topleft = '┌';
+            char hline = '─';
+            char topright = '┐';
+            char vline = '│';
+            char bottomleft = '└';
+            char bottomright = '┘';
+
+            var builder = new StringBuilder();
+            builder.Append(topleft);
+            for (int i = 0; i < 104; i++)
+                builder.Append(hline);
+            builder.Append(topright);
+            _log.Info(builder.ToString());
+
+            _log.Info(String.Format("{0}{1,-104}{0}", vline, "Daily Total Summary"));
+            _log.Info(String.Format("{0}{1,-33}{2,-71}{0}", vline, "Date", "Total Mb"));
+            foreach (DateTime item in _dailyTotals.Keys)
+            {
+                long bytes = (long)_dailyTotals[item];
+                _log.Info(String.Format("{0}{1,-33}{2,-71:n0}{0}", vline, item.ToString("dd/MM/yyyy"), bytes / (1024 * 1024)));
+            }
+
+            builder.Clear();
+            builder.Append(bottomleft);
+            for (int i = 0; i < 104; i++)
+                builder.Append(hline);
+            builder.Append(bottomright);
+            _log.Info(builder.ToString());
+        }
+
         private void PurgeFiles(string dirPath)
         {
             try
             {
+                DateTime today = DateTime.Now.Date;
+                if (!_dailyTotals.Contains(today))
+                    _dailyTotals[today] = (long)0;
+
                 string[] folders = Directory.GetDirectories(dirPath, "*", SearchOption.AllDirectories);
 
                 foreach (string folder in folders)
@@ -180,7 +221,17 @@ namespace SIEGateCleanup
                             if (_simulate == true)
                                 _log.Debug("Would have deleted " + file);
                             else
-                                File.Delete(file);
+                            {
+                                try
+                                {
+                                    File.Delete(file);
+                                    _dailyTotals[today] = (object)((long)_dailyTotals[today] + stats.totalBytes);
+                                }
+                                catch (Exception ex)
+                                {
+                                    _log.Error("File.Delete try PurgeFiles: " + ex.Message);
+                                }
+                            }
                         }
                         catch (Exception ex)
                         {
