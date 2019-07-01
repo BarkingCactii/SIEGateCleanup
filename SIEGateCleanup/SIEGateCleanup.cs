@@ -227,8 +227,6 @@ namespace SIEGateCleanup
 
                             try
                             {
-                                if (file.Contains("clocking"))
-                                    Console.WriteLine("debug");
                                 if (fi.LastWriteTime > today - keepBuffer)
                                 {
                                     // recently created archive, so don't delete
