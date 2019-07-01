@@ -23,6 +23,7 @@ namespace SIEGateCleanup
         OrderedDictionary _dailyTotals = new OrderedDictionary();
 
         private int _minutes = 60 * 12; // twice a day default
+        private int _daysToKeep = 7; // once a week
         private bool _simulate = false;
 
         private static Timer aTimer;
@@ -62,6 +63,9 @@ namespace SIEGateCleanup
 
             if ( int.TryParse(ConfigurationManager.AppSettings["Minutes"], out _minutes))
                 _log.Info(String.Format("Applying thread restart every {0} minutes", _minutes ));
+
+            if (int.TryParse(ConfigurationManager.AppSettings["DaysToKeep"], out _daysToKeep))
+                _log.Info(String.Format("Applying Days to keep archives to {0} days", _daysToKeep));
 
             string[] seperator = { ";" };
             string[] path = null;
@@ -193,6 +197,8 @@ namespace SIEGateCleanup
             try
             {
                 DateTime today = DateTime.Now.Date;
+                TimeSpan keepBuffer = new TimeSpan(_daysToKeep, 0, 0, 0);
+
                 if (!_dailyTotals.Contains(today))
                     _dailyTotals[today] = (long)0;
 
@@ -218,19 +224,29 @@ namespace SIEGateCleanup
                             stats.totalBytes += fi.Length;
                             stats.totalFiles++;
                             stats.folder = folder;
-                            if (_simulate == true)
-                                _log.Debug("Would have deleted " + file);
-                            else
+
+                            try
                             {
-                                try
+                                if (file.Contains("clocking"))
+                                    Console.WriteLine("debug");
+                                if (fi.LastWriteTime > today - keepBuffer)
+                                {
+                                    // recently created archive, so don't delete
+                                    _log.Debug("Not deleting recent file " + file);
+                                    continue;
+                                }
+
+                                if (_simulate == true)
+                                    _log.Debug("Would have deleted " + file);
+                                else
                                 {
                                     File.Delete(file);
                                     _dailyTotals[today] = (object)((long)_dailyTotals[today] + stats.totalBytes);
                                 }
-                                catch (Exception ex)
-                                {
-                                    _log.Error("File.Delete try PurgeFiles: " + ex.Message);
-                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _log.Error("File.Delete try PurgeFiles: " + ex.Message);
                             }
                         }
                         catch (Exception ex)
@@ -240,7 +256,6 @@ namespace SIEGateCleanup
                     }
 
                     _stats.Add(DateTime.Now, stats);
-
                 }
             }
             catch ( Exception ex)
