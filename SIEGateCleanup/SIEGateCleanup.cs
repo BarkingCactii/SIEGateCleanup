@@ -22,11 +22,15 @@ namespace SIEGateCleanup
         OrderedDictionary _stats = new OrderedDictionary();
         OrderedDictionary _dailyTotals = new OrderedDictionary();
 
+        private int _alertMinutes = 1; // twice a day default
         private int _minutes = 60 * 12; // twice a day default
+        private long _freeLimit = 50 * 1024; // 50Gb
         private int _daysToKeep = 7; // once a week
         private bool _simulate = false;
 
-        private static Timer aTimer;
+        private static Timer purgeTimer;
+        private static Timer alertTimer;
+
         private string [] _path = null;
 
         class CleanupStats
@@ -62,10 +66,16 @@ namespace SIEGateCleanup
         {
 
             if ( int.TryParse(ConfigurationManager.AppSettings["Minutes"], out _minutes))
-                _log.Info(String.Format("Applying thread restart every {0} minutes", _minutes ));
+                _log.Info(String.Format("Applying Purge thread restart every {0} minutes", _minutes ));
+
+            if (int.TryParse(ConfigurationManager.AppSettings["AlertMinutes"], out _alertMinutes))
+                _log.Info(String.Format("Applying Alert thread restart every {0} minutes", _alertMinutes));
 
             if (int.TryParse(ConfigurationManager.AppSettings["DaysToKeep"], out _daysToKeep))
                 _log.Info(String.Format("Applying Days to keep archives to {0} days", _daysToKeep));
+
+            if (long.TryParse(ConfigurationManager.AppSettings["AlertLimitMegabyte"], out _freeLimit))
+                _log.Info(String.Format("Available Limit for Alerts is {0} Mb", _freeLimit));
 
             string[] seperator = { ";" };
             string[] path = null;
@@ -94,9 +104,13 @@ namespace SIEGateCleanup
         {
             _log.Info("Applying purging to folders " + string.Join(";", args));
             _path = args;
-            aTimer = new Timer(2 * 1000);
-            aTimer.Elapsed += new ElapsedEventHandler(ExecuteEveryDayMethod);
-            aTimer.Enabled = true;
+            purgeTimer = new Timer(2 * 1000);
+            purgeTimer.Elapsed += new ElapsedEventHandler(ExecuteEveryDayMethod);
+            purgeTimer.Enabled = true;
+
+            alertTimer = new Timer(3 * 1000);
+            alertTimer.Elapsed += new ElapsedEventHandler(ExecuteAlertMethod);
+            alertTimer.Enabled = true;
         }
 
         // Specify what you want to happen when the Elapsed event is raised.
@@ -104,10 +118,10 @@ namespace SIEGateCleanup
         {
             try
             {
-                _log.Info("Process started");
+                _log.Info("Purge Process started");
 
                 // after initial execution, set timer to its repeating state
-                aTimer.Interval = _minutes * 60 * 1000;
+                purgeTimer.Interval = _minutes * 60 * 1000;
 
                 foreach (string folder in _path)
                 {
@@ -127,6 +141,102 @@ namespace SIEGateCleanup
             {
             }
         }
+
+        private void ExecuteAlertMethod(object source, ElapsedEventArgs e)
+        {
+            try
+            {
+                _log.Debug("Alert Process started");
+
+                // after initial execution, set timer to its repeating state
+                alertTimer.Interval = _alertMinutes * 60 * 1000;
+
+                PrintAvailable();
+
+                /*
+                foreach (DriveInfo drive in DriveInfo.GetDrives())
+                {
+                    if (drive.IsReady)
+                    {
+                        long freeSpace = drive.TotalFreeSpace;
+                        if (freeSpace > _freeLimit * 1024)
+                        {
+                            PrintAvailable(drive.Name, drive.VolumeLabel, freeSpace);
+                        }
+                    }
+                }
+                */
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void PrintAvailable()
+        {
+            char topleft = '┌';
+            char hline = '─';
+            char topright = '┐';
+            char vline = '│';
+            char bottomleft = '└';
+            char bottomright = '┘';
+
+            var builder = new StringBuilder();
+            builder.Append(topleft);
+            for (int i = 0; i < 104; i++)
+                builder.Append(hline);
+            builder.Append(topright);
+            _log.Info(builder.ToString());
+
+            _log.Info(String.Format("{0}{1,-104}{0}", vline, "Disk Space Summary "));
+            String alertMessage = String.Format("Alert limit set at {0:n0} bytes", _freeLimit * 1024 * 1024);
+            _log.Info(String.Format("{0}{1,-104}{0}", vline, alertMessage));
+
+       //     String emailMessage = "";
+            String htmlMessage = "";
+
+            foreach (DriveInfo drive in DriveInfo.GetDrives())
+            {
+                if (drive.IsReady)
+                {
+//                    Email.SendEmail("test message");
+
+                    long freeSpace = drive.TotalFreeSpace;
+                    if (freeSpace < _freeLimit * 1024 * 1024)
+                    {
+                        if (htmlMessage == "")
+                            htmlMessage = String.Format("<b>{0}</b>&nbsp;<i>Low disk capacity alert</i><br>Delivered by:&nbsp;<i>{1}</i><br><br>", System.Environment.MachineName, System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName);
+
+                        String driveMessage = String.Format("Free space on drive {0} [{1}] is {2:n0} bytes", drive.Name, drive.VolumeLabel, drive.TotalFreeSpace);
+                        _log.Info(String.Format("{0}{1,-104}{0}", vline, driveMessage));
+                        htmlMessage += String.Format("Free space on <b>{0} <i>[{1}]</i></b> is <b>{2:n0}</b> bytes<br>", drive.Name, drive.VolumeLabel, drive.TotalFreeSpace);
+//                        emailMessage += driveMessage + Environment.NewLine;
+                    }
+                }
+            }
+
+            if (htmlMessage != "")
+            {
+                //emailMessage = String.Format("{0}Low disk capacity alert{2}Process {1}{2}{2}", System.Environment.MachineName,
+                 //                   System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName,
+                   //                 Environment.NewLine) + emailMessage;
+                Email.SendEmail(htmlMessage);
+            }
+
+        //    _log.Info(String.Format("{0}Free space on Drive {1} is {2,-77:n0}{0}", vline, driveName, freeSpace));
+
+            builder.Clear();
+            builder.Append(bottomleft);
+            for (int i = 0; i < 104; i++)
+                builder.Append(hline);
+            builder.Append(bottomright);
+            _log.Info(builder.ToString());
+        }
+
 
         private void PrintStats()
         {
@@ -177,7 +287,7 @@ namespace SIEGateCleanup
             _log.Info(builder.ToString());
 
             _log.Info(String.Format("{0}{1,-104}{0}", vline, "Daily Total Summary"));
-            _log.Info(String.Format("{0}{1,-33}{2,-71}{0}", vline, "Date", "Total Mb"));
+            _log.Info(String.Format("{0}{1,-33}{2,-71:n0}{0}", vline, "Date", "Total Mb"));
             foreach (DateTime item in _dailyTotals.Keys)
             {
                 long bytes = (long)_dailyTotals[item];
@@ -264,8 +374,12 @@ namespace SIEGateCleanup
 
         public void StopProcess()
         {
-            aTimer.Enabled = false;
-            aTimer.Stop();
+            purgeTimer.Enabled = false;
+            purgeTimer.Stop();
+
+            alertTimer.Enabled = false;
+            alertTimer.Stop();
+
         }
     }
 }
