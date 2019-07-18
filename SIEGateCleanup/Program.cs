@@ -19,6 +19,10 @@ namespace SIEGateCleanup
 
             if (Environment.UserInteractive)
             {
+                /*
+                 * To install as a service run c:\windows\Microsoft.NET\Framework\v4.0.30319\installutil SIEGateCleanup.exe
+                 * To uninstall run c:\windows\Microsoft.NET\Framework\v4.0.30319\installutil /u SIEGateCleanup.exe
+                 */
                 service.RunAsConsole(args);
             }
             else
