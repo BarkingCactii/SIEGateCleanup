@@ -34,23 +34,15 @@ namespace SIEGateCleanup
                 String machine = System.Environment.MachineName;
                 mail.Subject = machine + " Alert from " + System.Diagnostics.Process.GetCurrentProcess().ProcessName;
                 mail.Body = message;
-                    //String.Format("Machine {0} Process {1}{2}{3}", machine,
-                  //  System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName,
-                  //  Environment.NewLine,
-                 //   message);
-
-
                 SmtpServer.Port = smtpPort;
                 SmtpServer.Credentials = new System.Net.NetworkCredential(username, password);
                 SmtpServer.EnableSsl = true;
 
                 SmtpServer.Send(mail);
-               // MessageBox.Show("mail Send");
             }
             catch (Exception ex)
             {
                 _log.Error(ex.Message);
-               // MessageBox.Show(ex.ToString());
             }
         }
     }

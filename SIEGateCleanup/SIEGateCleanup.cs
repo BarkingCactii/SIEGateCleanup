@@ -152,20 +152,6 @@ namespace SIEGateCleanup
                 alertTimer.Interval = _alertMinutes * 60 * 1000;
 
                 PrintAvailable();
-
-                /*
-                foreach (DriveInfo drive in DriveInfo.GetDrives())
-                {
-                    if (drive.IsReady)
-                    {
-                        long freeSpace = drive.TotalFreeSpace;
-                        if (freeSpace > _freeLimit * 1024)
-                        {
-                            PrintAvailable(drive.Name, drive.VolumeLabel, freeSpace);
-                        }
-                    }
-                }
-                */
             }
             catch (Exception ex)
             {
@@ -196,15 +182,12 @@ namespace SIEGateCleanup
             String alertMessage = String.Format("Alert limit set at {0:n0} bytes", _freeLimit * 1024 * 1024);
             _log.Info(String.Format("{0}{1,-104}{0}", vline, alertMessage));
 
-       //     String emailMessage = "";
             String htmlMessage = "";
 
             foreach (DriveInfo drive in DriveInfo.GetDrives())
             {
                 if (drive.IsReady)
                 {
-//                    Email.SendEmail("test message");
-
                     long freeSpace = drive.TotalFreeSpace;
                     if (freeSpace < _freeLimit * 1024 * 1024)
                     {
@@ -214,20 +197,14 @@ namespace SIEGateCleanup
                         String driveMessage = String.Format("Free space on drive {0} [{1}] is {2:n0} bytes", drive.Name, drive.VolumeLabel, drive.TotalFreeSpace);
                         _log.Info(String.Format("{0}{1,-104}{0}", vline, driveMessage));
                         htmlMessage += String.Format("Free space on <b>{0} <i>[{1}]</i></b> is <b>{2:n0}</b> bytes<br>", drive.Name, drive.VolumeLabel, drive.TotalFreeSpace);
-//                        emailMessage += driveMessage + Environment.NewLine;
                     }
                 }
             }
 
             if (htmlMessage != "")
             {
-                //emailMessage = String.Format("{0}Low disk capacity alert{2}Process {1}{2}{2}", System.Environment.MachineName,
-                 //                   System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName,
-                   //                 Environment.NewLine) + emailMessage;
                 Email.SendEmail(htmlMessage);
             }
-
-        //    _log.Info(String.Format("{0}Free space on Drive {1} is {2,-77:n0}{0}", vline, driveName, freeSpace));
 
             builder.Clear();
             builder.Append(bottomleft);
@@ -379,7 +356,6 @@ namespace SIEGateCleanup
 
             alertTimer.Enabled = false;
             alertTimer.Stop();
-
         }
     }
 }
